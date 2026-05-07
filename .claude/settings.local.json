@@ -3,7 +3,8 @@
     "allow": [
       "PowerShell(if \\(-not \\(Test-Path \"C:\\\\Projetos\\\\kevin\\\\Agente_Wumpus\"\\)\\) { New-Item -ItemType Directory -Path \"C:\\\\Projetos\\\\kevin\\\\Agente_Wumpus\" | Out-Null }; Get-ChildItem \"C:\\\\Projetos\\\\kevin\\\\Agente_Wumpus\")",
       "PowerShell(cd \"C:\\\\Projetos\\\\kevin\\\\Agente_Wumpus\"; foreach \\($s in 1..30\\) { $out = python main.py --semente $s --prob-poco 0.15 --silencioso 2>&1 | Select-String -Pattern \"VITORIA|DERROTA|caminho seguro\" | Select-Object -First 1; Write-Host \"semente $s -> $out\" })",
-      "PowerShell(if \\(-not \\(Test-Path \"C:\\\\Projetos\\\\kevin\\\\Agente_8Rainhas\"\\)\\) { New-Item -ItemType Directory -Path \"C:\\\\Projetos\\\\kevin\\\\Agente_8Rainhas\" | Out-Null }; Get-ChildItem \"C:\\\\Projetos\\\\kevin\\\\Agente_8Rainhas\")"
+      "PowerShell(if \\(-not \\(Test-Path \"C:\\\\Projetos\\\\kevin\\\\Agente_8Rainhas\"\\)\\) { New-Item -ItemType Directory -Path \"C:\\\\Projetos\\\\kevin\\\\Agente_8Rainhas\" | Out-Null }; Get-ChildItem \"C:\\\\Projetos\\\\kevin\\\\Agente_8Rainhas\")",
+      "PowerShell(if \\(-not \\(Test-Path \"C:\\\\Projetos\\\\kevin\\\\Agente8Rainhas_Formulacao\"\\)\\) { New-Item -ItemType Directory -Path \"C:\\\\Projetos\\\\kevin\\\\Agente8Rainhas_Formulacao\" | Out-Null }; Get-ChildItem \"C:\\\\Projetos\\\\kevin\\\\Agente8Rainhas_Formulacao\")"
     ]
   }
 }
