@@ -7,7 +7,8 @@
       "PowerShell(if \\(-not \\(Test-Path \"C:\\\\Projetos\\\\kevin\\\\Agente8Rainhas_Formulacao\"\\)\\) { New-Item -ItemType Directory -Path \"C:\\\\Projetos\\\\kevin\\\\Agente8Rainhas_Formulacao\" | Out-Null }; Get-ChildItem \"C:\\\\Projetos\\\\kevin\\\\Agente8Rainhas_Formulacao\")",
       "PowerShell(if \\(-not \\(Test-Path \"C:\\\\Projetos\\\\kevin\\\\Agente_8_Rainhas_Form_Reduzida\"\\)\\) { New-Item -ItemType Directory -Path \"C:\\\\Projetos\\\\kevin\\\\Agente_8_Rainhas_Form_Reduzida\" | Out-Null }; Get-ChildItem \"C:\\\\Projetos\\\\kevin\\\\Agente_8_Rainhas_Form_Reduzida\")",
       "PowerShell(cd \"C:\\\\Projetos\\\\kevin\\\\Agente_8_Rainhas_Form_Reduzida\"; foreach \\($i in 1..4\\) { Write-Host \"--- Execucao $i ---\"; python main.py | Select-String -Pattern \"Estado solucao|Nos visitados\" })",
-      "PowerShell(if \\(-not \\(Test-Path \"C:\\\\Projetos\\\\kevin\\\\Agente_Aspirador_Reativo_Simples\"\\)\\) { New-Item -ItemType Directory -Path \"C:\\\\Projetos\\\\kevin\\\\Agente_Aspirador_Reativo_Simples\" | Out-Null }; Get-ChildItem \"C:\\\\Projetos\\\\kevin\\\\Agente_Aspirador_Reativo_Simples\")"
+      "PowerShell(if \\(-not \\(Test-Path \"C:\\\\Projetos\\\\kevin\\\\Agente_Aspirador_Reativo_Simples\"\\)\\) { New-Item -ItemType Directory -Path \"C:\\\\Projetos\\\\kevin\\\\Agente_Aspirador_Reativo_Simples\" | Out-Null }; Get-ChildItem \"C:\\\\Projetos\\\\kevin\\\\Agente_Aspirador_Reativo_Simples\")",
+      "PowerShell(if \\(-not \\(Test-Path \"C:\\\\Projetos\\\\kevin\\\\Agente_Aspirador_Tabela\"\\)\\) { New-Item -ItemType Directory -Path \"C:\\\\Projetos\\\\kevin\\\\Agente_Aspirador_Tabela\" | Out-Null }; Get-ChildItem \"C:\\\\Projetos\\\\kevin\\\\Agente_Aspirador_Tabela\")"
     ]
   }
 }
