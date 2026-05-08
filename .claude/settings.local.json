@@ -9,7 +9,9 @@
       "PowerShell(cd \"C:\\\\Projetos\\\\kevin\\\\Agente_8_Rainhas_Form_Reduzida\"; foreach \\($i in 1..4\\) { Write-Host \"--- Execucao $i ---\"; python main.py | Select-String -Pattern \"Estado solucao|Nos visitados\" })",
       "PowerShell(if \\(-not \\(Test-Path \"C:\\\\Projetos\\\\kevin\\\\Agente_Aspirador_Reativo_Simples\"\\)\\) { New-Item -ItemType Directory -Path \"C:\\\\Projetos\\\\kevin\\\\Agente_Aspirador_Reativo_Simples\" | Out-Null }; Get-ChildItem \"C:\\\\Projetos\\\\kevin\\\\Agente_Aspirador_Reativo_Simples\")",
       "PowerShell(if \\(-not \\(Test-Path \"C:\\\\Projetos\\\\kevin\\\\Agente_Aspirador_Tabela\"\\)\\) { New-Item -ItemType Directory -Path \"C:\\\\Projetos\\\\kevin\\\\Agente_Aspirador_Tabela\" | Out-Null }; Get-ChildItem \"C:\\\\Projetos\\\\kevin\\\\Agente_Aspirador_Tabela\")",
-      "PowerShell(if \\(-not \\(Test-Path \"C:\\\\Projetos\\\\kevin\\\\Agente_Tabuleiro_Deslizante\"\\)\\) { New-Item -ItemType Directory -Path \"C:\\\\Projetos\\\\kevin\\\\Agente_Tabuleiro_Deslizante\" | Out-Null }; Get-ChildItem \"C:\\\\Projetos\\\\kevin\\\\Agente_Tabuleiro_Deslizante\")"
+      "PowerShell(if \\(-not \\(Test-Path \"C:\\\\Projetos\\\\kevin\\\\Agente_Tabuleiro_Deslizante\"\\)\\) { New-Item -ItemType Directory -Path \"C:\\\\Projetos\\\\kevin\\\\Agente_Tabuleiro_Deslizante\" | Out-Null }; Get-ChildItem \"C:\\\\Projetos\\\\kevin\\\\Agente_Tabuleiro_Deslizante\")",
+      "PowerShell(if \\(-not \\(Test-Path \"C:\\\\Projetos\\\\kevin\\\\Agente_Campo_Minado\"\\)\\) { New-Item -ItemType Directory -Path \"C:\\\\Projetos\\\\kevin\\\\Agente_Campo_Minado\" | Out-Null }; Get-ChildItem \"C:\\\\Projetos\\\\kevin\\\\Agente_Campo_Minado\")",
+      "PowerShell(cd \"C:\\\\Projetos\\\\kevin\\\\Agente_Campo_Minado\"; foreach \\($s in 1..5\\) { $r = python main.py --semente $s --minas 10 --silencioso 2>&1 | Select-String -Pattern \"VITORIA|DERROTA\" | Select-Object -First 1; Write-Host \"semente $s -> $r\" })"
     ]
   }
 }
