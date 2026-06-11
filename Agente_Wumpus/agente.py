@@ -70,6 +70,7 @@ class AgenteWumpus:
         if self.verbose:
             print()
             self.bc.imprimir_mapa_inferido(self.posicao)
+            self.bc.imprimir_resumo_logico()
         return self.venceu
 
     # -------------------- Decisao --------------------

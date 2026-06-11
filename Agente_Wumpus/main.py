@@ -69,6 +69,8 @@ def main():
                              'Ex: "2,1;3,2;4,3". Use "" para mundo sem pocos.')
     parser.add_argument("--silencioso", action="store_true",
                         help="Nao imprime o raciocinio passo a passo.")
+    parser.add_argument("--sentencas", action="store_true",
+                        help="Mostra todas as sentencas logicas da BC ao final.")
     args = parser.parse_args()
 
     mundo = MundoWumpus(
@@ -90,6 +92,10 @@ def main():
 
     agente = AgenteWumpus(mundo, verbose=not args.silencioso)
     venceu = agente.jogar()
+
+    # Mostrar sentencas logicas se solicitado
+    if args.sentencas:
+        agente.bc.imprimir_sentencas()
 
     print()
     print("=" * 50)
