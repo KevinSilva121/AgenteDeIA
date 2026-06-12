@@ -2,8 +2,9 @@
 
 Agente em Python que joga **Campo Minado** usando **Lógica Proposicional**
 (Aula 9 — Agentes Lógicos). Cada célula vira uma variável booleana, cada
-número revelado vira uma restrição numérica, e a Base de Conhecimento
-deduz quais células são seguras ou minas.
+número revelado é codificado em **cláusulas CNF** (Forma Normal Conjuntiva)
+usando operadores **AND**, **OR** e **NOT**, e a Base de Conhecimento
+usa **Propagação Unitária** para deduzir quais células são seguras ou minas.
 
 ---
 
@@ -11,7 +12,8 @@ deduz quais células são seguras ou minas.
 
 - [O que é o problema](#o-que-é-o-problema)
 - [Modelagem lógica](#modelagem-lógica)
-- [A classe `Sentence`](#a-classe-sentence)
+- [Codificação CNF](#codificação-cnf)
+- [Classes de sentenças lógicas](#classes-de-sentenças-lógicas)
 - [Regras de inferência](#regras-de-inferência)
 - [A função `checar_seguranca`](#a-função-checar_seguranca)
 - [Estratégia do agente](#estratégia-do-agente)
@@ -50,103 +52,164 @@ revela uma célula:
 Para cada célula `(i, j)` do tabuleiro, criamos um átomo lógico:
 
 ```
-M_{i,j} = True   <=>  há mina em (i,j)
-M_{i,j} = False  <=>  célula segura
+M(i,j) = True   <=>  há mina em (i,j)
+M(i,j) = False  <=>  célula segura  (NOT M(i,j))
 ```
 
-### Sentenças (restrições)
+### Restrições
 Quando o ambiente revela `(i, j)` com número `N`, o agente adiciona à
-Base de Conhecimento (BC) a sentença:
+Base de Conhecimento (BC) a restrição:
 
 > "Exatamente `N` das células vizinhas de `(i,j)` são minas"
 
-Em forma compacta:
-
-```
-{C₁, C₂, ..., Cₖ} = N    onde Cᵢ são as vizinhas ainda desconhecidas
-```
-
-Antes de adicionar, o agente já desconta as minas que **já conhece**
+Antes de adicionar, o agente desconta as minas que **já conhece**
 do número `N` e remove as células já provadas seguras do conjunto.
 
 ---
 
-## A classe `Sentence`
+## Codificação CNF
+
+A restrição "exatamente N de K vizinhos são minas" é codificada em
+**cláusulas CNF** (conjunção de disjunções) usando os operadores `OR` e `NOT`:
+
+### "No máximo N" (upper bound)
+Para cada subconjunto de tamanho N+1, pelo menos um **não** é mina:
+
+```
+(NOT M(s₁) OR NOT M(s₂) OR ... OR NOT M(s_{N+1}))
+```
+
+> "Em qualquer grupo de N+1 vizinhos, pelo menos um NÃO é mina"
+
+### "No mínimo N" (lower bound)
+Para cada subconjunto de tamanho K−N+1, pelo menos um **é** mina:
+
+```
+(M(s₁) OR M(s₂) OR ... OR M(s_{K-N+1}))
+```
+
+> "Em qualquer grupo de K−N+1 vizinhos, pelo menos um É mina"
+
+### Exemplos concretos
+
+| Restrição | Cláusulas CNF geradas |
+| --------- | --------------------- |
+| Exatamente 0 de {A, B, C} | `(NOT A)`, `(NOT B)`, `(NOT C)` |
+| Exatamente 3 de {A, B, C} | `(A)`, `(B)`, `(C)` |
+| Exatamente 1 de {A, B, C} | `(NOT A OR NOT B)`, `(NOT A OR NOT C)`, `(NOT B OR NOT C)`, `(A OR B OR C)` |
+| Exatamente 2 de {A, B, C, D} | `(NOT A OR NOT B OR NOT C)`, `(NOT A OR NOT B OR NOT D)`, `(NOT A OR NOT C OR NOT D)`, `(NOT B OR NOT C OR NOT D)`, `(A OR B OR C)`, `(A OR B OR D)`, `(A OR C OR D)`, `(B OR C OR D)` |
+
+A função `gerar_clausulas_cnf()` faz essa codificação automaticamente
+usando `itertools.combinations`.
+
+---
+
+## Classes de sentenças lógicas
+
+O agente implementa uma hierarquia completa de sentenças proposicionais,
+todas com o método `avaliar(modelo)` que é **chamado de verdade** durante
+a inferência:
+
+| Classe | Operador | Exemplo | Uso na inferência |
+| ------ | -------- | ------- | ----------------- |
+| `Simbolo` | Átomo | `M(1,2)` | Literal positivo em cláusulas |
+| `Not` | NOT | `NOT M(1,2)` | Literal negativo em cláusulas |
+| `Or` | OR | `(M(1,2) OR M(2,3))` | Cláusulas CNF — avaliadas na Propagação Unitária |
+| `And` | AND | `(NOT M(1,2) AND NOT M(2,3))` | Conjunção de cláusulas |
+| `Implies` | → | `(A IMPLIES B)` | Implicação lógica |
+| `Bicondicional` | ↔ | `(A IFF B)` | Se e somente se |
+
+### Como `avaliar()` é usado na inferência
+
+Na **Propagação Unitária**, para cada cláusula `Or(L₁, L₂, ..., Lₙ)`:
+1. Chama `Lᵢ.avaliar(modelo)` para cada literal (usa `Simbolo.avaliar` ou `Not.avaliar`)
+2. Se todos retornam `False` exceto um `Lₖ` que retorna `None` → `Lₖ` é forçado `True`
+3. Se algum retorna `True` → cláusula satisfeita, pula
+
+### A classe `RestricaoContagem`
+
+Representação compacta auxiliar usada para **Resolução por Subconjunto**:
 
 ```python
-class Sentence:
+class RestricaoContagem:
     def __init__(self, cells, count):
         self.cells = set(cells)   # conjunto de células
         self.count = count        # quantas delas são minas
 ```
 
-Operações principais:
-
-| Método | O que faz |
-| ------ | --------- |
-| `known_mines()` | Se `count == len(cells)` → todas são minas |
-| `known_safes()` | Se `count == 0` → todas são seguras |
-| `mark_mine(c)` | Remove `c` do conjunto e diminui `count` |
-| `mark_safe(c)` | Remove `c` do conjunto (não mexe em `count`) |
-
-> A representação `(conjunto, contagem)` é equivalente a uma fórmula
-> proposicional do tipo "exatamente `count` literais positivos entre
-> esses". É a forma mais compacta possível — uma única sentença encapsula
-> o que seriam dezenas de cláusulas em CNF puro.
+Cada restrição gera suas cláusulas CNF reais via `gerar_clausulas()`,
+que são adicionadas à Base de Conhecimento.
 
 ---
 
 ## Regras de inferência
 
-A função `_inferir()` aplica três regras até atingir um **ponto fixo**:
+A função `_inferir()` aplica duas regras até atingir um **ponto fixo**:
 
-### R1 — todas são minas
+### Passo 1 — Propagação Unitária (sobre cláusulas CNF)
+
+Para cada cláusula `(L₁ OR L₂ OR ... OR Lₙ)` na BC:
+- Avalia cada literal `Lᵢ` usando `avaliar(modelo)`
+- Se **n−1 literais são False** e sobra **1 não-resolvido** → esse literal é **forçado True**
+
+Isto é uma aplicação direta de **Modus Ponens** sobre cláusulas CNF.
+
 ```
-{a, b, c} = 3   ⇒   a, b, c são todas MINAS
+Exemplo:
+  Cláusula: (NOT M(1,2) OR NOT M(2,3))
+  Modelo:   M(1,2) = True  →  NOT M(1,2) avalia como False
+  ⇒ NOT M(2,3) é forçado True  →  M(2,3) = False [SEGURA]
 ```
 
-### R2 — todas são seguras
+Os casos triviais (count = 0 e count = |cells|) são resolvidos
+automaticamente pela propagação, pois geram cláusulas unitárias:
+
 ```
-{a, b, c} = 0   ⇒   a, b, c são todas SEGURAS
+count = 0 de {A, B, C}  →  cláusulas: (NOT A), (NOT B), (NOT C)
+  ⇒ Propagação imediata: A=False, B=False, C=False  [todas SEGURAS]
+
+count = 3 de {A, B, C}  →  cláusulas: (A), (B), (C)
+  ⇒ Propagação imediata: A=True, B=True, C=True  [todas MINAS]
 ```
 
-### R3 — regra de subconjunto (a mais poderosa)
+### Passo 2 — Resolução por Subconjunto (regra derivada)
+
+Quando a propagação unitária não consegue derivar mais nada, o agente
+aplica resolução sobre as restrições de contagem:
+
 ```
-Se S₁ ⊂ S₂  então  (S₂ - S₁) = (count₂ - count₁)
+Se R₁.cells ⊂ R₂.cells  então:
+  R₃ = (R₂.cells − R₁.cells, R₂.count − R₁.count)
 
 Exemplo:
-  {a, b}    = 1
-  {a, b, c} = 1
-  ⇒  {c} = 0  (c é segura!)
+  R₁: {A, B}    = 1
+  R₂: {A, B, C} = 1
+  ⇒ R₃: {C} = 0  (C é segura!)
 ```
 
-Esta regra permite o agente "ver através" de configurações que à primeira
-vista parecem indeterminadas, mas têm dedução lógica oculta.
+A nova restrição R₃ é **convertida em cláusulas CNF** e adicionada à BC,
+alimentando novas rodadas de Propagação Unitária. Este ciclo continua
+até o ponto fixo.
 
 ---
 
 ## A função `checar_seguranca`
 
-Determina o status lógico de uma célula consultando a BC:
+Consulta diretamente o **modelo** da Base de Conhecimento:
 
 ```python
 def checar_seguranca(self, celula):
-    if celula in self.safes:    return 'segura'
-    if celula in self.mines:    return 'mina'
-    for sent in self.knowledge:
-        if celula in sent.cells:
-            if sent.count == 0:                     return 'segura'
-            if sent.count == len(sent.cells):       return 'mina'
+    nome = f"M({celula[0]},{celula[1]})"
+    if nome in self.bc.modelo:
+        return 'mina' if self.bc.modelo[nome] else 'segura'
     return 'desconhecida'
 ```
 
 ### Princípio lógico
 Equivale a perguntar `BC ⊨ ¬M(celula)` (segura) ou `BC ⊨ M(celula)` (mina).
 
-A versão "negar a hipótese e checar contradição" mencionada na Aula 9
-é equivalente: assumir que `(celula)` é segura e ver se isso entra em
-contradição com alguma sentença é o mesmo que verificar se a sentença
-já força a célula a ser mina.
+O modelo é preenchido pela Propagação Unitária, que só atribui valores
+quando eles são **logicamente forçados** pelas cláusulas CNF.
 
 ---
 
@@ -154,10 +217,11 @@ já força a célula a ser mina.
 
 ```
 A cada rodada:
-  1. Tenta jogada SEGURA: alguma célula em `safes` ainda não jogada?
+  1. Tenta jogada SEGURA: alguma célula com M(i,j)=False no modelo
+     ainda não jogada?
   2. Se não houver → heurística de risco:
        - para cada célula desconhecida c:
-           prob(c) = max(count/|cells|) entre as sentenças que contêm c
+           prob(c) = max(count/|cells|) entre as restrições que contêm c
        - escolhe a célula com MENOR probabilidade.
 ```
 
@@ -170,7 +234,7 @@ ele escolhe a opção menos arriscada com base nas restrições conhecidas.
 ## Requisitos
 
 - **Python 3.8+**
-- Sem dependências externas.
+- Sem dependências externas (usa apenas `random`, `sys`, `itertools`).
 
 ---
 
@@ -185,10 +249,11 @@ python main.py
 
 | Comando | O que faz |
 | ------- | --------- |
-| `python main.py` | 8x8 com 10 minas |
-| `python main.py --semente 7 --minas 8` | Reproduzível, dificuldade média |
+| `python main.py` | 8×8 com 10 minas |
+| `python main.py --semente 42 --minas 8` | Reproduzível, dificuldade média |
 | `python main.py --altura 10 --largura 10 --minas 15` | Tabuleiro maior |
 | `python main.py --silencioso` | Sem log das deduções |
+| `python main.py --bc` | Mostra todas as cláusulas CNF ao final |
 
 ---
 
@@ -207,18 +272,32 @@ python main.py
 ### Logs de raciocínio durante o jogo
 
 ```
-Nova sentenca pela regra de (3, 4): [(2, 3), (2, 4), (2, 5), (3, 3), (3, 5), (4, 3), (4, 4), (4, 5)] = 2
-  >> Inferido: (2, 3) e SEGURA (sentenca com count == 0)
-  >> Subset: ({(0, 1), (1, 0), (1, 1)} = 1) - ({(1, 1)} = 1) => {(0, 1), (1, 0)} = 0
-  >> Inferido: (3, 0) e MINA (sentenca com count == |cells|)
-  >> Heuristica: (4, 0) tem prob. estimada 33% de ser mina (menor entre desconhecidas).
+  [RESTRICAO] Celula (3,4) com contagem 2:
+    ExatamenteN({M(2,3), M(2,4), M(2,5), M(3,3), M(3,5)}, 2)
+    Codificada em 13 clausulas CNF:
+      (NOT M(2,3) OR NOT M(2,4) OR NOT M(2,5))
+      (NOT M(2,3) OR NOT M(2,4) OR NOT M(3,3))
+      ...
+
+  >> [Propagacao Unitaria]
+     Clausula: (NOT M(1,2) OR NOT M(2,3))
+     => M(2,3) = False [SEGURA]
+
+  >> [Resolucao por Subconjunto]
+     ExatamenteN({M(0,1), M(1,0)}, 1)
+     SUBSET
+     ExatamenteN({M(0,1), M(1,0), M(1,1)}, 1)
+     => (NOT M(1,1))
+     (+1 clausulas CNF)
+
+  >> [Heuristica] (4,0) com prob. estimada 33% de ser mina
 ```
 
 ### Resultado final
 
 - **VITORIA em N rodadas!** → todas as casas seguras reveladas.
 - **DERROTA! Pisou em mina em (i, j).** → o agente teve que adivinhar
-  e errou (ou perdeu logo no primeiro clique sem informação).
+  e errou.
 
 ---
 
@@ -228,8 +307,13 @@ Tudo está em [main.py](main.py):
 
 | Classe / Função | Responsabilidade |
 | --------------- | ---------------- |
-| **`Sentence`** | Restrição lógica `{células} = count` |
-| **`MinesweeperAI`** | Base de conhecimento + inferência + decisão |
+| **`Sentenca`** | Classe base abstrata para sentenças lógicas |
+| **`Simbolo`**, **`Not`**, **`And`**, **`Or`** | Operadores lógicos com `avaliar()` — usados na inferência real |
+| **`Implies`**, **`Bicondicional`** | Operadores adicionais (implicação e bicondicional) |
+| **`gerar_clausulas_cnf()`** | Codifica "exatamente N de K" em cláusulas CNF |
+| **`BaseConhecimento`** | Armazena cláusulas CNF + modelo parcial + Propagação Unitária |
+| **`RestricaoContagem`** | Representação compacta para Resolução por Subconjunto + geração CNF |
+| **`MinesweeperAI`** | Agente: adiciona conhecimento, infere, decide jogada |
 | **`Minesweeper`** | Ambiente do jogo (mantém minas e revelações) |
 | `imprimir_tabuleiro` | Visualização |
 | `jogar` | Loop principal do jogo |
@@ -237,24 +321,41 @@ Tudo está em [main.py](main.py):
 ### Fluxo principal
 
 ```python
-ai.add_knowledge(celula, count)   # 1. Adiciona sentença e infere
-                                  #    (chama mark_safe, _inferir)
+ai.add_knowledge(celula, count)   # 1. Codifica em CNF, adiciona à BC, infere
+                                  #    (Propagação Unitária + Resolução)
 jogada = ai.jogada_segura()       # 2. Tenta jogada provada segura
 if jogada is None:
     jogada = ai.jogada_arriscada() # 3. Heurística probabilística
 ```
 
-### Por que dois loops aninhados em `_inferir()`?
+### Fluxo detalhado da inferência
+
+```
+add_knowledge(cell, count):
+  ├── mark_safe(cell)  →  modelo[M(i,j)] = False
+  ├── Construir RestricaoContagem(vizinhos_desconhecidos, count_ajustado)
+  ├── gerar_clausulas_cnf()  →  cláusulas Or/Not reais
+  ├── Adicionar cláusulas à BaseConhecimento
+  └── _inferir():
+       └── while mudou:
+            ├── Propagação Unitária:
+            │    Para cada cláusula (L₁ OR ... OR Lₙ):
+            │      avaliar cada Lᵢ no modelo
+            │      se n-1 são False → forçar o restante
+            └── Resolução por Subconjunto:
+                 Se R₁ ⊂ R₂ → nova RestricaoContagem
+                 → gerar cláusulas CNF → adicionar à BC
+```
+
+### Por que o loop `while mudou`?
 
 A inferência é em **ponto fixo**: cada nova conclusão pode habilitar
 outras. Por exemplo:
-1. Sentença `{a,b}=2` ⇒ R1 → `a` e `b` são minas.
-2. `mark_mine(a)` propaga em todas as sentenças.
-3. Outra sentença `{a,c,d}=1` vira `{c,d}=0` ⇒ R2 → `c, d` seguras.
-4. Isso pode habilitar mais R3 (subset), e assim por diante.
-
-O `while mudou` garante que ele só termina quando nada mais pode ser
-deduzido.
+1. Propagação força `M(2,3) = False` [SEGURA]
+2. Isso satisfaz/simplifica cláusulas que contêm `M(2,3)`
+3. Restrições são simplificadas → Resolução gera nova restrição
+4. Nova restrição gera cláusulas CNF unitárias → mais propagação
+5. Repete até nada mais mudar
 
 ---
 
@@ -267,10 +368,11 @@ parcialmente observável.
 | Aspecto | Wumpus | Campo Minado (este) |
 | ------- | ------ | ------------------- |
 | Sensores | Fedor / Brisa / Brilho (booleanos) | Número de minas vizinhas (inteiro) |
-| Forma da sentença | Cláusulas disjuntivas | `{cells} = N` (restrição numérica) |
-| Inferência principal | Resolução + interseção | Subconjunto + contagem |
-| Decisão segura | Provar `OK(célula)` | `cell ∈ safes` |
-| Quando arrisca? | Nunca (para se travado) | Quando lógica falha |
+| Forma da sentença | Cláusulas disjuntivas | Cláusulas CNF codificadas de "exatamente N de K" |
+| Inferência principal | Resolução + interseção | **Propagação Unitária** sobre CNF + Resolução por Subconjunto |
+| Operadores usados | AND, OR, NOT | AND, OR, NOT (avaliados via `avaliar()`) |
+| Decisão segura | Provar `OK(célula)` | Consultar `modelo[M(i,j)]` |
+| Quando arrisca? | Nunca (para se travado) | Quando lógica falha (heurística de menor risco) |
 
 Ambos demonstram a tese da Aula 9: **agentes inteligentes podem ser
 construídos como provadores de teoremas sobre o ambiente**.
@@ -282,7 +384,7 @@ construídos como provadores de teoremas sobre o ambiente**.
 **Por que o agente perde às vezes?**
 Porque há momentos em Campo Minado onde **nenhuma jogada é provadamente
 segura** — só restam adivinhações. Mesmo a melhor adivinhação pode dar
-errado. Em tabuleiros 8x8 com 10 minas, ~40% das partidas são vencidas
+errado. Em tabuleiros 8×8 com 10 minas, ~40% das partidas são vencidas
 mesmo com jogo perfeito.
 
 **Por que o primeiro clique é sempre `(0,0)`?**
@@ -290,27 +392,33 @@ Convenção: o ambiente não coloca mina nessa célula, então o primeiro
 clique é seguro. Sem isso, o agente perderia 10/64 ≈ 16% das partidas
 no primeiro clique sem chance de raciocinar.
 
-**A regra de subconjunto é completa?**
-Para a maioria dos casos práticos, sim. Mas existe a chamada **dedução
-global** (envolvendo múltiplas sentenças simultaneamente) que pode
-provar mais do que o subset rule sozinho. Para resolver Campo Minado
-de forma 100% completa, seria preciso usar **SAT solving** ou modelar
-como problema NP-completo.
+**A Propagação Unitária é completa?**
+Para os casos triviais (count = 0 e count = |cells|), sim — gera
+cláusulas unitárias que são resolvidas imediatamente. Para casos
+intermediários, a Propagação Unitária sozinha pode não ser suficiente,
+por isso usamos a **Resolução por Subconjunto** como regra complementar.
+A resolução gera novas cláusulas CNF que alimentam mais propagação.
+
+**O que é Propagação Unitária?**
+É a regra de inferência principal: se uma cláusula `(L₁ OR L₂ OR ... OR Lₙ)`
+tem todos os literais avaliados como `False` exceto um, esse literal é
+**forçado** `True`. É uma aplicação direta de Modus Ponens. O método
+`avaliar()` de cada operador (`Or`, `Not`, `Simbolo`) é chamado de
+verdade a cada passo da inferência.
 
 **O que é "estratégia de risco"?**
 Quando a BC não consegue provar nada, o agente calcula para cada
-célula desconhecida a probabilidade de ser mina baseada nas sentenças
+célula desconhecida a probabilidade de ser mina baseada nas restrições
 que a contêm. Escolhe a célula com **menor** probabilidade. É uma
 heurística — não garante segurança, mas evita as piores escolhas.
 
-**Por que `count` pode ficar negativo?**
-Não pode (e isso seria um bug). Se você ver isso, significa que a BC
-está inconsistente — provavelmente um erro na contagem do ambiente.
-A implementação atual evita isso descontando minas conhecidas **antes**
-de criar a sentença.
+**Quantas cláusulas CNF são geradas?**
+Depende da restrição. "Exatamente N de K" gera `C(K, N+1) + C(K, K-N+1)`
+cláusulas. Para casos comuns (K=3-5, N=1-2), são 4-15 cláusulas.
+Em um jogo 8×8 típico, a BC acumula ~100-200 cláusulas no total.
 
 **Como adicionar mais regras de inferência?**
-Acrescente métodos no `_inferir()` que percorram a `self.knowledge`
-e gerem novas conclusões. Por exemplo:
+Acrescente passos no `_inferir()`. Por exemplo:
 - Regra do "número total de minas restantes" (sabe quantas minas faltam).
 - Regra de "fronteira" (analisa só as células na borda do conhecido).
+- Resolução binária entre pares de cláusulas CNF.

@@ -16,6 +16,9 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Tuple
 
 
+from romania_data import ROMANIA_COORDINATES, compute_shortest_paths
+
+
 # ---------------------------------------------------------------------------
 # Estruturas de Dados do Ambiente
 # ---------------------------------------------------------------------------
@@ -45,8 +48,8 @@ class TSPEnvironment:
         cities (List[City]): Lista de cidades do problema.
 
     Propriedades Calculadas:
-        _distance_cache: Cache de distâncias euclidianas pré-calculadas
-                         para acesso em O(1).
+        _distance_cache: Cache de distâncias euclidianas ou rodoviárias
+                         pré-calculadas para acesso em O(1).
     """
 
     cities: List[City]
@@ -56,11 +59,22 @@ class TSPEnvironment:
 
     def __post_init__(self) -> None:
         """Pré-calcula e armazena em cache todas as distâncias par-a-par."""
-        for i, city_a in enumerate(self.cities):
-            for city_b in self.cities[i + 1 :]:
-                dist = self._euclidean(city_a, city_b)
-                self._distance_cache[(city_a.name, city_b.name)] = dist
-                self._distance_cache[(city_b.name, city_a.name)] = dist
+        is_romania = len(self.cities) > 0 and all(city.name in ROMANIA_COORDINATES for city in self.cities)
+
+        if is_romania:
+            shortest_paths = compute_shortest_paths()
+            for i, city_a in enumerate(self.cities):
+                for city_b in self.cities[i + 1 :]:
+                    dist = shortest_paths[city_a.name][city_b.name]
+                    self._distance_cache[(city_a.name, city_b.name)] = dist
+                    self._distance_cache[(city_b.name, city_a.name)] = dist
+        else:
+            for i, city_a in enumerate(self.cities):
+                for city_b in self.cities[i + 1 :]:
+                    dist = self._euclidean(city_a, city_b)
+                    self._distance_cache[(city_a.name, city_b.name)] = dist
+                    self._distance_cache[(city_b.name, city_a.name)] = dist
+
         # Distância de uma cidade para ela mesma
         for city in self.cities:
             self._distance_cache[(city.name, city.name)] = 0.0

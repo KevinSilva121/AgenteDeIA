@@ -283,3 +283,62 @@ class TestTSPAgent:
         assert result.total_cost > 0
         assert result.path[0] == result.path[-1] == "A"
         assert set(result.path) == {"A", "B", "C", "D", "E"}
+
+
+class TestRomaniaTSP:
+
+    def test_romania_environment_shortest_paths(self):
+        cities = [
+            City(name="Arad", x=91.0, y=492.0),
+            City(name="Bucharest", x=400.0, y=327.0),
+            City(name="Sibiu", x=207.0, y=457.0),
+            City(name="Fagaras", x=305.0, y=449.0),
+        ]
+        env = TSPEnvironment(cities)
+        city_map = env.city_map
+        # Arad para Bucharest deve ser 418.0 (Arad-Sibiu: 140, Sibiu-Rimnicu Vilcea: 80, Rimnicu-Pitesti: 97, Pitesti-Bucharest: 101)
+        assert env.distance(city_map["Arad"], city_map["Bucharest"]) == pytest.approx(418.0)
+        # Sibiu para Bucharest deve ser 278.0
+        assert env.distance(city_map["Sibiu"], city_map["Bucharest"]) == pytest.approx(278.0)
+
+    def test_romania_search_optimal_tour(self):
+        cities = [
+            City(name="Arad", x=91.0, y=492.0),
+            City(name="Bucharest", x=400.0, y=327.0),
+            City(name="Sibiu", x=207.0, y=457.0),
+            City(name="Fagaras", x=305.0, y=449.0),
+        ]
+        env = TSPEnvironment(cities)
+        origin = env.city_map["Arad"]
+        problem = TSPProblem(env, origin)
+        searcher = AStarGraphSearch(problem)
+        result = searcher.search()
+        assert result.found is True
+        assert result.total_cost == pytest.approx(868.0)
+        assert result.path[0] == "Arad"
+        assert result.path[-1] == "Arad"
+        assert set(result.path) == {"Arad", "Bucharest", "Sibiu", "Fagaras"}
+
+    def test_romania_custom_route_start_end_stops(self):
+        cities = [
+            City(name="Arad", x=91.0, y=492.0),
+            City(name="Bucharest", x=400.0, y=327.0),
+            City(name="Sibiu", x=207.0, y=457.0),
+            City(name="Fagaras", x=305.0, y=449.0),
+            City(name="Zerind", x=108.0, y=531.0),
+        ]
+        env = TSPEnvironment(cities)
+        city_map = env.city_map
+        start = city_map["Arad"]
+        end = city_map["Bucharest"]
+        stops = [city_map["Zerind"], city_map["Sibiu"], city_map["Fagaras"]]
+
+        problem = TSPProblem(env, start_city=start, end_city=end, stops=stops)
+        searcher = AStarGraphSearch(problem)
+        result = searcher.search()
+
+        assert result.found is True
+        assert result.total_cost == pytest.approx(600.0)
+        assert result.path == ["Arad", "Zerind", "Sibiu", "Fagaras", "Bucharest"]
+
+

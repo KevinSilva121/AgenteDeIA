@@ -53,10 +53,14 @@ class TSPAgent:
         self,
         cities: List[City],
         origin: City,
+        end_city: Optional[City] = None,
+        stops: Optional[List[City]] = None,
         verbose: bool = False,
     ) -> None:
         self.cities = cities
         self.origin = origin
+        self.end_city = end_city if end_city is not None else origin
+        self.stops = stops
         self.verbose = verbose
 
         # Componentes internos (inicializados em _formulate)
@@ -98,21 +102,25 @@ class TSPAgent:
 
         Passos:
           - Cria TSPEnvironment com as cidades fornecidas.
-          - Pré-calcula a matriz de distâncias euclidianas.
-          - Instancia TSPProblem com a cidade de origem.
+          - Pré-calcula a matriz de distâncias.
+          - Instancia TSPProblem com cidade de início, fim e paradas.
         """
         print("\n[1/3] FORMULANDO O PROBLEMA...")
         self._environment = TSPEnvironment(cities=self.cities)
         self._problem = TSPProblem(
             environment=self._environment,
-            origin_city=self.origin,
+            start_city=self.origin,
+            end_city=self.end_city,
+            stops=self.stops,
         )
 
         n = len(self.cities)
         print(f"  ✔ Ambiente criado: {n} cidades.")
-        print(f"  ✔ Cidade de origem: {self.origin.name!r}")
-        print(f"  ✔ Estado inicial  : {self._problem.initial_state()}")
-        print(f"  ✔ Espaço de estados: {n}! / {n} = {self._factorial(n - 1):,} rotas possíveis.")
+        print(f"  ✔ Cidade de início : {self.origin.name!r}")
+        print(f"  ✔ Cidade de destino: {self.end_city.name!r}")
+        print(f"  ✔ Estado inicial   : {self._problem.initial_state()}")
+        n_stops = len(self._problem.stops)
+        print(f"  ✔ Espaço de estados: {n_stops}! = {self._factorial(n_stops):,} rotas possíveis.")
 
     # ------------------------------------------------------------------
     # Fase 2: Busca
@@ -154,9 +162,9 @@ class TSPAgent:
             from_city = city_map[from_name]
             to_city = city_map[to_name]
             dist = self._environment.distance(from_city, to_city)
-            arrow = "→" if i < len(path) - 2 else "↩"
+            arrow = "→" if (i < len(path) - 2 or to_name != self.origin.name) else "↩"
             print(
-                f"  Passo {i + 1:>2}: {from_name:>10} {arrow} {to_name:<10} "
+                f"  Passo {i + 1:>2}: {from_name:>15} {arrow} {to_name:<15} "
                 f"  (distância: {dist:>8.4f})"
             )
 
